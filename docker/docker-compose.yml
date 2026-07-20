@@ -1,0 +1,109 @@
+services:
+  # Reverse proxy + TLS termination
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certs:/etc/nginx/certs:ro
+      - wordpress_data:/var/www/html:ro
+    depends_on:
+      - wordpress
+      - phpmyadmin
+    networks:
+      - cloud1
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # WordPress (PHP-FPM) with automatic installation
+  wordpress:
+    image: wordpress:php8.2-fpm-alpine
+    container_name: wordpress
+    restart: always
+    env_file:
+      - .env
+    environment:
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX}
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wordpress/init-wordpress.sh:/usr/local/bin/init-wordpress.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/init-wordpress.sh"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - cloud1
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # MariaDB database
+  mariadb:
+    image: mariadb:11.2
+    container_name: mariadb
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - cloud1
+    # NO ports exposed → not reachable from internet
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # phpMyAdmin (only reachable via nginx)
+  phpmyadmin:
+    image: phpmyadmin:5.2-apache
+    container_name: phpmyadmin
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PMA_HOST: ${PMA_HOST}
+      PMA_USER: ${PMA_USER}
+      PMA_PASSWORD: ${PMA_PASSWORD}
+      UPLOAD_LIMIT: 64M
+      PMA_ABSOLUTE_URI: https://localhost/phpmyadmin/
+      PMA_ARBITRARY: 0
+      HIDE_PHP_VERSION: "true"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    networks:
+      - cloud1
+    # NO ports exposed → only internal access via nginx
+
+volumes:
+  wordpress_data:
+    driver: local
+  db_data:
+    driver: local
+
+networks:
+  cloud1:
+    driver: bridge
+    name: cloud1
