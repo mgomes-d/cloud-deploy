@@ -1,0 +1,55 @@
+---
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Synchronize project files to the server
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../docker/"
+    dest: "{{ app_dir }}/"
+    delete: true
+    private_key: "{{ ansible_ssh_private_key_file }}"
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=.env"
+  delegate_to: localhost
+  become: false
+
+- name: Copy .env file
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../docker/.env"
+    dest: "{{ app_dir }}/.env"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+
+- name: Ensure WordPress environment variables are set in .env
+  ansible.builtin.lineinfile:
+    path: "{{ app_dir }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: true
+  loop:
+    - { key: "WORDPRESS_URL", value: "{{ wordpress_url }}" }
+    - { key: "WORDPRESS_ADMIN_USER", value: "{{ wordpress_admin_user }}" }
+    - { key: "WORDPRESS_ADMIN_PASSWORD", value: "{{ wordpress_admin_password }}" }
+    - { key: "WORDPRESS_ADMIN_EMAIL", value: "{{ wordpress_admin_email }}" }
+    - { key: "WORDPRESS_TITLE", value: "{{ wordpress_title }}" }
+  become: false
+
+- name: Ensure certs directory exists
+  ansible.builtin.file:
+    path: "{{ app_dir }}/certs"
+    state: directory
+    mode: "0755"
+
+- name: Start the application with Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    state: present
+    pull: always
+  become: false

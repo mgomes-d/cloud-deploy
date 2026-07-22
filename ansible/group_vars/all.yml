@@ -1,0 +1,19 @@
+timezone: Europe/Brussels
+
+docker_compose_version: "2.27.0"
+
+app_name: cloud-1
+app_dir: /opt/cloud-1
+
+domain_name: localhost
+
+allowed_ports:
+  - 22
+  - 80
+  - 443
+
+wordpress_url: "https://{{ ansible_host }}"
+wordpress_admin_user: "admin"
+wordpress_admin_password: "admin123"
+wordpress_admin_email: "admin@example.com"
+wordpress_title: "Cloud-1"

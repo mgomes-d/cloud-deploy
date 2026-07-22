@@ -93,11 +93,11 @@ if ! wp core is-installed --allow-root 2>/dev/null; then
   echo "==> WordPress not installed yet. Running automatic installation..."
 
   wp core install \
-    --url="https://localhost" \
-    --title="Cloud-1" \
-    --admin_user="admin" \
-    --admin_password="admin123" \
-    --admin_email="admin@example.com" \
+    --url="${WORDPRESS_URL:-https://localhost}" \
+    --title="${WORDPRESS_TITLE:-Cloud-1}" \
+    --admin_user="${WORDPRESS_ADMIN_USER:-admin}" \
+    --admin_password="${WORDPRESS_ADMIN_PASSWORD:-admin123}" \
+    --admin_email="${WORDPRESS_ADMIN_EMAIL:-admin@example.com}" \
     --skip-email \
     --allow-root
 
@@ -105,15 +105,20 @@ if ! wp core is-installed --allow-root 2>/dev/null; then
   echo "========================================="
   echo "  WordPress installed successfully!"
   echo "========================================="
-  echo "  URL      : https://localhost"
-  echo "  Title    : Cloud-1"
-  echo "  User     : admin"
-  echo "  Password : admin123"
+  echo "  URL      : ${WORDPRESS_URL:-https://localhost}"
+  echo "  Title    : ${WORDPRESS_TITLE:-Cloud-1}"
+  echo "  User     : ${WORDPRESS_ADMIN_USER:-admin}"
+  echo "  Password : ${WORDPRESS_ADMIN_PASSWORD:-admin123}"
   echo "========================================="
   echo ""
 else
   echo "==> WordPress is already installed. Skipping installation."
 fi
+
+# Always force the correct site URL (works for both new and existing installs)
+echo "==> Ensuring correct site URL..."
+wp option update home "${WORDPRESS_URL:-https://localhost}" --allow-root || true
+wp option update siteurl "${WORDPRESS_URL:-https://localhost}" --allow-root || true
 
 echo "==> Starting PHP-FPM..."
 exec docker-entrypoint.sh php-fpm
