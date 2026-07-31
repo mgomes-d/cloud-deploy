@@ -130,3 +130,4 @@ multipass start cloud1
 - Database is never exposed to the internet
 - Ansible code is organized into clear roles
 - Portable to any fresh Ubuntu 22.04 instance
+- In aws, check the security group for inbound rules

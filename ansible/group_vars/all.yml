@@ -5,7 +5,7 @@ docker_compose_version: "2.27.0"
 app_name: cloud-1
 app_dir: /opt/cloud-1
 
-domain_name: localhost
+domain_name: ec2-13-48-129-157.eu-north-1.compute.amazonaws.com
 
 allowed_ports:
   - 22
