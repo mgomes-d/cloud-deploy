@@ -56,13 +56,26 @@ Edit `ansible/group_vars/all.yml`:
 
 ```yaml
 wordpress_url: "https://{{ ansible_host }}"
-wordpress_admin_user: "admin"
-wordpress_admin_password: "admin123"          # change this!
-wordpress_admin_email: "admin@example.com"
 wordpress_title: "Cloud-1"
 ```
 
+Edit `ansible/group_vars/vault.yml`:
+```sh
+ansible-vault edit group_vars/vault.yml
+```
+```yml
+vault_wordpress_admin_user: "admin"
+vault_wordpress_admin_password: "admin123"
+vault_wordpress_admin_email: "admin@example.com"
+```
+
 Also configure `docker/.env` (copy from `.env.example` and set strong passwords).
+
+Do not forget to put the vault password in the ansible.cfg:
+example:
+vault_password_file = ~/.ansible_vault_pass
+Change if the path is different
+
 
 ## Deploy
 

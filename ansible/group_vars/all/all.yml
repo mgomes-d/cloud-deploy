@@ -1,0 +1,19 @@
+timezone: Europe/Brussels
+
+docker_compose_version: "2.27.0"
+
+app_name: cloud-1
+app_dir: /opt/cloud-1
+
+domain_name: ec2-16-16-195-30.eu-north-1.compute.amazonaws.com
+
+allowed_ports:
+  - 22
+  - 80
+  - 443
+
+wordpress_url: "https://{{ ansible_host }}"
+wordpress_admin_user: "{{ vault_wordpress_admin_user }}"
+wordpress_admin_password: "{{ vault_wordpress_admin_password }}"
+wordpress_admin_email: "{{ vault_wordpress_admin_email }}"
+wordpress_title: "Cloud-1"
