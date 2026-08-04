@@ -72,7 +72,7 @@ docker_compose_version: "2.27.0"
 app_name: cloud-1
 app_dir: /opt/cloud-1
 
-domain_name: localhost
+domain_name: ec2-13-48-129-157.eu-north-1.compute.amazonaws.com
 
 allowed_ports:
   - 22
@@ -92,9 +92,9 @@ all:
     cloud1:
       hosts:
         server1:
-          ansible_host: 192.168.252.7
+          ansible_host: ec2-13-48-129-157.eu-north-1.compute.amazonaws.com
           ansible_user: ubuntu
-          ansible_ssh_private_key_file: ~/.ssh/id_cloud1
+          ansible_ssh_private_key_file: ~/.ssh/mgomes-d.pem
 -e 
 
 ########## FILE: ./ansible/roles/common/tasks/main.yml ##########
@@ -131,14 +131,7 @@ all:
   community.general.timezone:
     name: "{{ timezone }}"
   when: timezone is defined
-
-- name: Ensure WORDPRESS_URL is set in .env
-  ansible.builtin.lineinfile:
-    path: "{{ app_dir }}/.env"
-    regexp: "^WORDPRESS_URL="
-    line: "WORDPRESS_URL={{ wordpress_url }}"
-    create: true
-  become: false-e 
+-e 
 
 ########## FILE: ./ansible/roles/deploy/tasks/main.yml ##########
 
@@ -155,6 +148,7 @@ all:
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../docker/"
     dest: "{{ app_dir }}/"
+    use_ssh_args: true
     delete: true
     private_key: "{{ ansible_ssh_private_key_file }}"
     rsync_opts:
@@ -171,6 +165,20 @@ all:
     group: "{{ ansible_user }}"
     mode: "0600"
 
+- name: Ensure WordPress environment variables are set in .env
+  ansible.builtin.lineinfile:
+    path: "{{ app_dir }}/.env"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: true
+  loop:
+    - { key: "WORDPRESS_URL", value: "{{ wordpress_url }}" }
+    - { key: "WORDPRESS_ADMIN_USER", value: "{{ wordpress_admin_user }}" }
+    - { key: "WORDPRESS_ADMIN_PASSWORD", value: "{{ wordpress_admin_password }}" }
+    - { key: "WORDPRESS_ADMIN_EMAIL", value: "{{ wordpress_admin_email }}" }
+    - { key: "WORDPRESS_TITLE", value: "{{ wordpress_title }}" }
+  become: false
+
 - name: Ensure certs directory exists
   ansible.builtin.file:
     path: "{{ app_dir }}/certs"
@@ -182,8 +190,7 @@ all:
     project_src: "{{ app_dir }}"
     state: present
     pull: always
-  become: false
--e 
+  become: false-e 
 
 ########## FILE: ./ansible/roles/docker/tasks/main.yml ##########
 
@@ -252,7 +259,10 @@ all:
   ansible.builtin.user:
     name: "{{ ansible_user }}"
     groups: docker
-    append: true-e 
+    append: true
+
+- name: Reset SSH connection so the new docker group is active
+  ansible.builtin.meta: reset_connection-e 
 
 ########## FILE: ./ansible/roles/firewall/tasks/main.yml ##########
 
@@ -344,6 +354,8 @@ PMA_PASSWORD=rootpassword_change_me
 DOMAIN_NAME=localhost
 
 # WordPress admin (change these!)
+WORDPRESS_URL=https://your-server-ip-or-domain
+
 WORDPRESS_ADMIN_USER=admin
 WORDPRESS_ADMIN_PASSWORD=admin123
 WORDPRESS_ADMIN_EMAIL=admin@example.com
@@ -440,7 +452,7 @@ services:
       PMA_USER: ${PMA_USER}
       PMA_PASSWORD: ${PMA_PASSWORD}
       UPLOAD_LIMIT: 64M
-      PMA_ABSOLUTE_URI: https://localhost/phpmyadmin/
+      PMA_ABSOLUTE_URI: ${WORDPRESS_URL}/phpmyadmin/
       PMA_ARBITRARY: 0
       HIDE_PHP_VERSION: "true"
     depends_on:
@@ -502,7 +514,6 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Prefix /phpmyadmin;
-        proxy_cookie_path / /phpmyadmin/;
     }
 
     location = /phpmyadmin {

@@ -4,7 +4,7 @@
 !.env.example
 
 # Certificates (regenerate or use real ones)
-# certs/*.pem   # uncomment if you don't want to commit self-signed
+certs/*.pem   # uncomment if you don't want to commit self-signed
 
 # Docker
 *.log
@@ -15,3 +15,6 @@
 .vscode/
 *.swp
 *~
+
+get_info.sh
+all_info.txt

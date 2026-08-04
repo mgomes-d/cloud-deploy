@@ -13,7 +13,7 @@ allowed_ports:
   - 443
 
 wordpress_url: "https://{{ ansible_host }}"
-wordpress_admin_user: "admin"
-wordpress_admin_password: "admin123"
-wordpress_admin_email: "admin@example.com"
+wordpress_admin_user: {{ vault_wordpress_admin_user }}
+wordpress_admin_password: {{ vault_wordpress_admin_password }}
+wordpress_admin_email: {{ vault_wordpress_admin_email }}
 wordpress_title: "Cloud-1"

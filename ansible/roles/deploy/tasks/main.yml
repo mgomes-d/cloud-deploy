@@ -47,6 +47,21 @@
     path: "{{ app_dir }}/certs"
     state: directory
     mode: "0755"
+    
+- name: Check if TLS certificate already exists
+  ansible.builtin.stat:
+    path: "{{ app_dir }}/certs/fullchain.pem"
+  register: cert_stat
+
+- name: Generate self-signed TLS certificate on the server
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days 365
+      -newkey rsa:2048
+      -keyout {{ app_dir }}/certs/privkey.pem
+      -out {{ app_dir }}/certs/fullchain.pem
+      -subj "/CN={{ domain_name }}"
+  when: not cert_stat.stat.exists
 
 - name: Start the application with Docker Compose
   community.docker.docker_compose_v2:
