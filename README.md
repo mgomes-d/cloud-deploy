@@ -22,7 +22,7 @@ One command deploys a complete, secured, persistent stack on a fresh Ubuntu 22.0
 - Firewall (UFW) allows **only** ports 22 / 80 / 443
 - Self-signed TLS certificates (generated automatically)
 - WordPress installed and configured automatically via WP-CLI
-- Secrets managed with Ansible Vault
+- Secrets managed with Ansible Vault (no hard-coded secrets)
 - Idempotent Ansible roles
 
 ---
@@ -45,15 +45,9 @@ One command deploys a complete, secured, persistent stack on a fresh Ubuntu 22.0
 
 ---
 
-## Quick Start
+## Quick Start (for evaluation)
 
-### 1. Clone the repository
-```bash
-git clone <your-repo-url>
-cd cloud-deploy
-```
-
-### 2. Configure the inventory
+### 1. Configure the inventory
 Edit `ansible/inventory/hosts.yml`:
 
 ```yaml
@@ -67,12 +61,11 @@ all:
           ansible_ssh_private_key_file: ~/.ssh/your-key.pem
 ```
 
-### 3. Configure variables
-Edit `ansible/group_vars/all/all.yml` if needed (domain, timezone, etc.).
+### 2. Configure non-secret variables (optional)
+Edit `ansible/group_vars/all/all.yml` if needed (domain, timezone…).
 
-### 4. Set secrets (Ansible Vault)
+### 3. Set secrets (Ansible Vault)
 ```bash
-# Create / edit the vault
 cd ansible
 ansible-vault edit group_vars/all/vault.yml
 ```
@@ -84,26 +77,25 @@ vault_wordpress_admin_password: "ChangeMeStrongPassword!"
 vault_wordpress_admin_email: "admin@example.com"
 ```
 
-Make sure the vault password file exists (configured in `ansible.cfg`):
+Create the vault password file (path defined in `ansible.cfg`):
 ```bash
-# Example
 echo "your-vault-password" > ~/.ansible_vault_pass
 chmod 600 ~/.ansible_vault_pass
 ```
 
-### 5. Prepare Docker environment file
+### 4. Prepare Docker environment file
 ```bash
 cp docker/.env.example docker/.env
-# Edit docker/.env and set strong passwords
+# Edit docker/.env and set strong passwords for the database
 ```
 
-### 6. Deploy
+### 5. Deploy
 ```bash
 cd ansible
 ansible-playbook site.yml
 ```
 
-Useful tags:
+Useful tags (for partial / modular runs):
 ```bash
 ansible-playbook site.yml --tags common
 ansible-playbook site.yml --tags docker
@@ -117,10 +109,12 @@ ansible-playbook site.yml --tags deploy
 
 After successful deployment:
 
-| Service      | URL                              | Default credentials      |
-|--------------|----------------------------------|--------------------------|
-| WordPress    | `https://<server-ip>`            | See vault / `.env`       |
-| phpMyAdmin   | `https://<server-ip>/phpmyadmin/`| root / (see `.env`)      |
+| Service      | URL                              |
+|--------------|----------------------------------|
+| WordPress    | `https://<server-ip>`            |
+| phpMyAdmin   | `https://<server-ip>/phpmyadmin/`|
+
+Credentials are the ones you set in the vault / `.env` file.
 
 > Accept the self-signed certificate warning in your browser.
 
@@ -193,7 +187,7 @@ multipass start cloud1
 - Only ports **22**, **80** and **443** are open
 - MariaDB and phpMyAdmin are **not** exposed to the internet
 - TLS is enforced (HTTP → HTTPS redirect)
-- Secrets are stored in Ansible Vault
+- Secrets are stored in Ansible Vault (no hard-coded secrets in the code)
 - Docker `.env` file has restricted permissions (`0600`)
 - Self-signed certificates are generated on the target (replace with real ones for production)
 

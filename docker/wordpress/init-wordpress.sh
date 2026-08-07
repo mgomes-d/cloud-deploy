@@ -92,12 +92,18 @@ echo "==> Database is ready!"
 if ! wp core is-installed --allow-root 2>/dev/null; then
   echo "==> WordPress not installed yet. Running automatic installation..."
 
+  # These variables must be provided via the environment / .env file
+  if [ -z "${WORDPRESS_ADMIN_USER}" ] || [ -z "${WORDPRESS_ADMIN_PASSWORD}" ] || [ -z "${WORDPRESS_ADMIN_EMAIL}" ]; then
+    echo "ERROR: WORDPRESS_ADMIN_USER, WORDPRESS_ADMIN_PASSWORD and WORDPRESS_ADMIN_EMAIL must be set"
+    exit 1
+  fi
+
   wp core install \
     --url="${WORDPRESS_URL:-https://localhost}" \
     --title="${WORDPRESS_TITLE:-Cloud-1}" \
-    --admin_user="${WORDPRESS_ADMIN_USER:-admin}" \
-    --admin_password="${WORDPRESS_ADMIN_PASSWORD:-admin123}" \
-    --admin_email="${WORDPRESS_ADMIN_EMAIL:-admin@example.com}" \
+    --admin_user="${WORDPRESS_ADMIN_USER}" \
+    --admin_password="${WORDPRESS_ADMIN_PASSWORD}" \
+    --admin_email="${WORDPRESS_ADMIN_EMAIL}" \
     --skip-email \
     --allow-root
 
@@ -107,8 +113,7 @@ if ! wp core is-installed --allow-root 2>/dev/null; then
   echo "========================================="
   echo "  URL      : ${WORDPRESS_URL:-https://localhost}"
   echo "  Title    : ${WORDPRESS_TITLE:-Cloud-1}"
-  echo "  User     : ${WORDPRESS_ADMIN_USER:-admin}"
-  echo "  Password : ${WORDPRESS_ADMIN_PASSWORD:-admin123}"
+  echo "  User     : ${WORDPRESS_ADMIN_USER}"
   echo "========================================="
   echo ""
 else
