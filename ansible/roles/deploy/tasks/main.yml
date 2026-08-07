@@ -17,6 +17,7 @@
     rsync_opts:
       - "--exclude=.git"
       - "--exclude=.env"
+      - "--exclude=certs"
   delegate_to: localhost
   become: false
 
@@ -42,12 +43,14 @@
     - { key: "WORDPRESS_TITLE", value: "{{ wordpress_title }}" }
   become: false
 
-- name: Ensure certs directory exists
+- name: Ensure certs directory exists with correct ownership
   ansible.builtin.file:
     path: "{{ app_dir }}/certs"
     state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: "0755"
-    
+
 - name: Check if TLS certificate already exists
   ansible.builtin.stat:
     path: "{{ app_dir }}/certs/fullchain.pem"
@@ -61,7 +64,19 @@
       -keyout {{ app_dir }}/certs/privkey.pem
       -out {{ app_dir }}/certs/fullchain.pem
       -subj "/CN={{ domain_name }}"
+  become: false
   when: not cert_stat.stat.exists
+
+- name: Ensure certificate files have correct ownership
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0644"
+  loop:
+    - "{{ app_dir }}/certs/fullchain.pem"
+    - "{{ app_dir }}/certs/privkey.pem"
+  when: cert_stat.stat.exists
 
 - name: Start the application with Docker Compose
   community.docker.docker_compose_v2:
