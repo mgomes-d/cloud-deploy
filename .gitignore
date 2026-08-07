@@ -3,8 +3,9 @@
 .env.*
 !.env.example
 
-# Certificates (regenerate or use real ones)
-certs/*.pem   # uncomment if you don't want to commit self-signed
+# Certificates (generated on the server)
+docker/certs/
+*.pem
 
 # Docker
 *.log
@@ -16,5 +17,6 @@ certs/*.pem   # uncomment if you don't want to commit self-signed
 *.swp
 *~
 
+# Local helper / debug files
 get_info.sh
 all_info.txt
