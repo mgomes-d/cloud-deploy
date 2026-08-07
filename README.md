@@ -1,146 +1,226 @@
+# Cloud-1 – Automated WordPress Stack Deployment
 
-# Cloud-1 – Automated Deployment of Inception
+Fully automated deployment of a production-ready **WordPress** environment using **Ansible** + **Docker Compose**.
 
-Automated deployment of a complete WordPress stack using **Ansible** + **Docker Compose**.
+One command deploys a complete, secured, persistent stack on a fresh Ubuntu 22.04 server (local Multipass VM or cloud instance).
 
-## Stack
+---
 
-| Service     | Image                        | Role                     |
-|-------------|------------------------------|--------------------------|
-| nginx       | nginx:1.25-alpine            | Reverse proxy + TLS      |
-| wordpress   | wordpress:php8.2-fpm-alpine  | WordPress (PHP-FPM)      |
-| mariadb     | mariadb:11.2                 | Database                 |
-| phpmyadmin  | phpmyadmin:5.2-apache        | Database administration  |
+## Stack Overview
 
-- 1 process = 1 container
-- Named volumes for data persistence
-- `restart: always`
-- Only ports **22 / 80 / 443** are open
-- TLS enabled (self-signed certificates)
+| Service        | Image                         | Purpose                          | Exposed            |
+|----------------|-------------------------------|----------------------------------|--------------------|
+| **nginx**      | `nginx:1.25-alpine`           | Reverse proxy + TLS termination  | Ports 80 & 443     |
+| **wordpress**  | `wordpress:php8.2-fpm-alpine` | WordPress (PHP-FPM) + auto-install | Internal only    |
+| **mariadb**    | `mariadb:11.2`                | Database                         | Internal only      |
+| **phpmyadmin** | `phpmyadmin:5.2-apache`       | Database administration UI       | Via nginx only     |
+
+### Key Features
+- One process = one container
+- Named Docker volumes → data survives reboots and container recreation
+- `restart: always` on every service
+- Firewall (UFW) allows **only** ports 22 / 80 / 443
+- Self-signed TLS certificates (generated automatically)
+- WordPress installed and configured automatically via WP-CLI
+- Secrets managed with Ansible Vault
+- Idempotent Ansible roles
+
+---
 
 ## Requirements
 
-### Control machine
+### Control machine (your laptop)
 - Ansible ≥ 2.14
-- Collections:
+- Required collections:
   ```bash
   ansible-galaxy collection install community.docker community.general ansible.posix
   ```
-- SSH key pair
-- Multipass (for local testing) or any Ubuntu 22.04 server
+- SSH private key with access to the target
+- (Optional) Multipass for local testing
 
-### Target
-- Fresh Ubuntu 22.04 LTS
+### Target server
+- Fresh **Ubuntu 22.04 LTS**
 - SSH access + Python 3
+- Sufficient resources (recommended: 2 vCPU, 4 GB RAM, 20 GB disk)
 
-## Quick start with Multipass
+---
 
+## Quick Start
+
+### 1. Clone the repository
 ```bash
-# Launch the VM
-multipass launch 22.04 --name cloud1 --cpus 2 --memory 4G --disk 20G
-
-# Inject your SSH key
-multipass exec cloud1 -- bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
-multipass exec cloud1 -- bash -c "cat >> ~/.ssh/authorized_keys" < ~/.ssh/id_cloud1.pub
-multipass exec cloud1 -- chmod 600 ~/.ssh/authorized_keys
-
-# Get the IP
-multipass info cloud1
+git clone <your-repo-url>
+cd cloud-deploy
 ```
 
-Update `ansible/inventory/hosts.yml` with the IP and key path.
-
-## Configuration
-
-Edit `ansible/group_vars/all.yml`:
+### 2. Configure the inventory
+Edit `ansible/inventory/hosts.yml`:
 
 ```yaml
-wordpress_url: "https://{{ ansible_host }}"
-wordpress_title: "Cloud-1"
+all:
+  children:
+    cloud1:
+      hosts:
+        server1:
+          ansible_host: <IP-or-hostname>
+          ansible_user: ubuntu
+          ansible_ssh_private_key_file: ~/.ssh/your-key.pem
 ```
 
-Edit `ansible/group_vars/vault.yml`:
-```sh
-ansible-vault edit group_vars/vault.yml
+### 3. Configure variables
+Edit `ansible/group_vars/all/all.yml` if needed (domain, timezone, etc.).
+
+### 4. Set secrets (Ansible Vault)
+```bash
+# Create / edit the vault
+cd ansible
+ansible-vault edit group_vars/all/vault.yml
 ```
-```yml
+
+Example content:
+```yaml
 vault_wordpress_admin_user: "admin"
-vault_wordpress_admin_password: "admin123"
+vault_wordpress_admin_password: "ChangeMeStrongPassword!"
 vault_wordpress_admin_email: "admin@example.com"
 ```
 
-Also configure `docker/.env` (copy from `.env.example` and set strong passwords).
+Make sure the vault password file exists (configured in `ansible.cfg`):
+```bash
+# Example
+echo "your-vault-password" > ~/.ansible_vault_pass
+chmod 600 ~/.ansible_vault_pass
+```
 
-Do not forget to put the vault password in the ansible.cfg:
-example:
-vault_password_file = ~/.ansible_vault_pass
-Change if the path is different
+### 5. Prepare Docker environment file
+```bash
+cp docker/.env.example docker/.env
+# Edit docker/.env and set strong passwords
+```
 
-
-## Deploy
-
+### 6. Deploy
 ```bash
 cd ansible
 ansible-playbook site.yml
 ```
 
 Useful tags:
-
 ```bash
+ansible-playbook site.yml --tags common
 ansible-playbook site.yml --tags docker
 ansible-playbook site.yml --tags firewall
 ansible-playbook site.yml --tags deploy
 ```
 
-## Access
+---
 
-- **WordPress**: `https://<IP>`
-- **phpMyAdmin**: `https://<IP>/phpmyadmin/`
+## Access the Application
 
-Default credentials (change them!):
+After successful deployment:
 
-| Service    | User  | Password   |
-|------------|-------|------------|
-| WordPress  | admin | admin123   |
-| phpMyAdmin | root  | (see .env) |
+| Service      | URL                              | Default credentials      |
+|--------------|----------------------------------|--------------------------|
+| WordPress    | `https://<server-ip>`            | See vault / `.env`       |
+| phpMyAdmin   | `https://<server-ip>/phpmyadmin/`| root / (see `.env`)      |
 
 > Accept the self-signed certificate warning in your browser.
 
-## Project structure
+---
+
+## Project Structure
 
 ```
-.
+cloud-deploy/
 ├── ansible/
-│   ├── group_vars/all.yml
-│   ├── inventory/hosts.yml
-│   ├── roles/
-│   │   ├── common/
-│   │   ├── docker/
-│   │   ├── firewall/
-│   │   └── deploy/
-│   └── site.yml
-└── docker/
-    ├── docker-compose.yml
-    ├── .env / .env.example
-    ├── nginx/
-    ├── wordpress/
-    └── certs/
+│   ├── ansible.cfg
+│   ├── site.yml                    # Main playbook
+│   ├── inventory/
+│   │   └── hosts.yml
+│   ├── group_vars/
+│   │   └── all/
+│   │       ├── all.yml             # Non-secret variables
+│   │       └── vault.yml           # Secrets (encrypted)
+│   └── roles/
+│       ├── common/                 # System packages, timezone
+│       ├── docker/                 # Install Docker + Compose
+│       ├── firewall/               # UFW (22/80/443 only)
+│       └── deploy/                 # Sync files, generate certs, start stack
+├── docker/
+│   ├── docker-compose.yml
+│   ├── .env.example
+│   ├── nginx/
+│   │   └── conf.d/default.conf
+│   └── wordpress/
+│       └── init-wordpress.sh       # Auto-install script
+├── README.md
+└── ...
 ```
 
-## Persistence test
+---
+
+## Local Testing with Multipass
 
 ```bash
-multipass stop cloud1
-multipass start cloud1
-# Containers and data should come back automatically
+# Launch VM
+multipass launch 22.04 --name cloud1 --cpus 2 --memory 4G --disk 20G
+
+# Inject your SSH public key
+multipass exec cloud1 -- bash -c 'mkdir -p ~/.ssh && chmod 700 ~/.ssh'
+multipass exec cloud1 -- bash -c "cat >> ~/.ssh/authorized_keys" < ~/.ssh/id_ed25519.pub
+multipass exec cloud1 -- chmod 600 ~/.ssh/authorized_keys
+
+# Get IP
+multipass info cloud1
 ```
 
-## Notes for evaluation
+Then update `ansible/inventory/hosts.yml` with the IP and your private key path.
 
-- Fully automated (only Ubuntu 22.04 + SSH + Python required)
-- Data survives reboot (named volumes + restart policies)
-- Firewall locks everything except 22/80/443
-- Database is never exposed to the internet
-- Ansible code is organized into clear roles
-- Portable to any fresh Ubuntu 22.04 instance
-- In aws, check the security group for inbound rules
+---
+
+## Persistence Test
+
+```bash
+# Stop and start the VM / server
+multipass stop cloud1
+multipass start cloud1
+
+# Containers and all data (WordPress + database) come back automatically
+```
+
+---
+
+## Security Notes
+
+- Only ports **22**, **80** and **443** are open
+- MariaDB and phpMyAdmin are **not** exposed to the internet
+- TLS is enforced (HTTP → HTTPS redirect)
+- Secrets are stored in Ansible Vault
+- Docker `.env` file has restricted permissions (`0600`)
+- Self-signed certificates are generated on the target (replace with real ones for production)
+
+---
+
+## Notes for Evaluation / Production
+
+- Fully automated — only a clean Ubuntu 22.04 + SSH + Python is required
+- Data persists across reboots (named volumes + restart policies)
+- Firewall is restrictive by default
+- Database is never reachable from the outside
+- Ansible roles are clearly separated and idempotent
+- Works on any fresh Ubuntu 22.04 instance (Multipass, AWS EC2, etc.)
+- On AWS: ensure the Security Group allows inbound TCP 22, 80 and 443
+
+---
+
+## Troubleshooting
+
+| Problem                        | Possible solution                                      |
+|--------------------------------|--------------------------------------------------------|
+| Vault password error           | Check `vault_password_file` path in `ansible.cfg`     |
+| Permission denied on Docker    | Re-run after the `docker` role (user is added to group)|
+| Certificate warning            | Expected with self-signed certs                        |
+| Containers not starting        | Check `docker compose logs` on the target              |
+| Ansible connection issues      | Verify IP, user and private key path in inventory      |
+
+---
+
+Made for the **Cloud-1 / Inception** project.
