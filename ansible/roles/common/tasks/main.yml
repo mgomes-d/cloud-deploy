@@ -4,11 +4,9 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Upgrade all packages
-  ansible.builtin.apt:
-    upgrade: dist
-    autoremove: true
-    autoclean: true
+# Avoid full dist-upgrade: it often pulls large kernel packages
+# and fails on small disks (common on free-tier / small EC2).
+# Only install what we actually need.
 
 - name: Install basic packages
   ansible.builtin.apt:
@@ -25,6 +23,12 @@
       - python3-pip
       - python3-docker
     state: present
+    update_cache: true
+
+- name: Remove unused packages and clean apt cache
+  ansible.builtin.apt:
+    autoremove: true
+    autoclean: true
 
 - name: Set timezone
   community.general.timezone:
